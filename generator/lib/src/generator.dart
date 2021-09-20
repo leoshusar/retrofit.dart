@@ -978,6 +978,14 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
       return;
     }
 
+    final _emptyJsonBody = _getMethodAnnotationByType(m, retrofit.EmptyJsonBody);
+    if (_emptyJsonBody != null) {
+      blocks.add(literalMap({}, refer("String"), refer("dynamic"))
+          .assignFinal(_dataVar)
+          .statement);
+      return;
+    }
+
     var annotation = _getAnnotation(m, retrofit.Body);
     final _bodyName = annotation?.item1;
     if (_bodyName != null) {

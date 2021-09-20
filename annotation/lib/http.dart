@@ -175,6 +175,13 @@ class NoBody {
   const NoBody();
 }
 
+/// Use this annotation on a service method param when you want to indicate that empty JSON body
+/// should be generated for POST/PUT/DELETE requests.
+@immutable
+class EmptyJsonBody {
+  const EmptyJsonBody();
+}
+
 /// Named pair for a form request.
 ///
 /// ```
