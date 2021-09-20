@@ -201,6 +201,22 @@ class Path {
   const Path([this.value]);
 }
 
+/// Named replacement in a URL path segment from object property.
+/// Key is URL replacement and value is property name.
+/// 
+/// Simple Example:
+/// 
+///```
+/// @POST("/users/{id}")
+/// Future<void> foo(@PathProperty({'id': 'userId'}) User user)
+///```
+/// Generates `/users/${user.userId}`.
+@immutable
+class PathProperty {
+  final Map<String, String> values;
+  const PathProperty(this.values);
+}
+
 /// Query parameter appended to the URL.
 ///
 /// Simple Example:

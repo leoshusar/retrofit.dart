@@ -329,10 +329,15 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
 
   Expression _generatePath(MethodElement m, ConstantReader method) {
     final paths = _getAnnotations(m, retrofit.Path);
+    final pathProperties = _getAnnotations(m, retrofit.PathProperty);
     String? definePath = method.peek("path")?.stringValue;
     paths.forEach((k, v) {
       final value = v.peek("value")?.stringValue ?? k.displayName;
       definePath = definePath?.replaceFirst("{$value}", "\$${k.displayName}");
+    });
+    pathProperties.forEach((k, v) {
+      final values = v.peek("values")?.mapValue.map((k, v) => MapEntry(k?.toStringValue(), v?.toStringValue()));
+      values?.forEach((pk, pv) => definePath = definePath?.replaceFirst("{$pk}", "\${${k.displayName}.$pv}"));
     });
     return literal(definePath);
   }
