@@ -168,6 +168,12 @@ class Body {
   const Body({this.nullToAbsent = false});
 }
 
+@immutable
+class BodyJsonPart {
+  final String? value;
+  const BodyJsonPart([this.value]);
+}
+
 /// Use this annotation on a service method param when you want to indicate that no body should be
 /// generated for POST/PUT/DELETE requests.
 @immutable
