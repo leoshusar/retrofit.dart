@@ -30,6 +30,7 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
   static const _queryParamsVar = "queryParameters";
   static const _dataVar = "data";
   static const _localDataVar = "_data";
+  static const _localJsonParts = "_jsonParts";
   static const _dioVar = "_dio";
   static const _extraVar = 'extra';
   static const _localExtraVar = '_extra';
@@ -987,32 +988,24 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
     }
 
     var annotations = _getAnnotations(m, retrofit.BodyJsonPart);
-    if (annotations.isNotEmpty) {
-      final jsonParts = annotations.map((p, ConstantReader r) {
-        final key = r.peek("value")?.stringValue ?? p.displayName;
-        final value = (_isBasicType(p.type) ||
-                p.type.isDartCoreList ||
-                p.type.isDartCoreMap)
-            ? refer(p.displayName)
-            : clientAnnotation.parser == retrofit.Parser.DartJsonMapper
-                ? refer(p.displayName)
-                : clientAnnotation.parser == retrofit.Parser.JsonSerializable
-                    ? p.type.nullabilitySuffix == NullabilitySuffix.question ? refer(p.displayName).nullSafeProperty('toJson').call([]) : refer(p.displayName).property('toJson').call([])
-                    : p.type.nullabilitySuffix == NullabilitySuffix.question ? refer(p.displayName).nullSafeProperty('toMap').call([]) : refer(p.displayName).property('toMap').call([]);
-        return MapEntry(literalString(key, raw: true), value);
-      });
+    final jsonParts = annotations.map((p, ConstantReader r) {
+      final key = r.peek("value")?.stringValue ?? p.displayName;
+      final value = (_isBasicType(p.type) ||
+              p.type.isDartCoreList ||
+              p.type.isDartCoreMap)
+          ? refer(p.displayName)
+          : clientAnnotation.parser == retrofit.Parser.DartJsonMapper
+              ? refer(p.displayName)
+              : clientAnnotation.parser == retrofit.Parser.JsonSerializable
+                  ? p.type.nullabilitySuffix == NullabilitySuffix.question ? refer(p.displayName).nullSafeProperty('toJson').call([]) : refer(p.displayName).property('toJson').call([])
+                  : p.type.nullabilitySuffix == NullabilitySuffix.question ? refer(p.displayName).nullSafeProperty('toMap').call([]) : refer(p.displayName).property('toMap').call([]);
+      return MapEntry(literalString(key, raw: true), value);
+    });
 
+    if (jsonParts.isNotEmpty) {
       blocks.add(literalMap(jsonParts, refer("String"), refer("dynamic"))
-          .assignFinal(_dataVar)
+          .assignFinal(_localJsonParts)
           .statement);
-
-      if (m.parameters
-          .where((p) => (p.type.nullabilitySuffix == NullabilitySuffix.question))
-          .isNotEmpty) {
-        blocks.add(Code("$_dataVar.removeWhere((k, v) => v == null);"));
-      }
-
-      return;
     }
 
     var annotation = _getAnnotation(m, retrofit.Body);
@@ -1028,6 +1021,9 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
         blocks.add(refer("$_dataVar.addAll").call([
           refer("${_bodyName.displayName}${m.type.nullabilitySuffix == NullabilitySuffix.question ? ' ?? <String,dynamic>{}' :''}")
         ]).statement);
+        if (jsonParts.isNotEmpty) {
+          blocks.add(refer("$_dataVar.addAll").call([refer(_localJsonParts)]).statement);
+        }
         if (nullToAbsent) blocks.add(Code("$_dataVar.removeWhere((k, v) => v == null);"));
       } else if (bodyTypeElement != null && ((_typeChecker(List).isExactly(bodyTypeElement) ||
               _typeChecker(BuiltList).isExactly(bodyTypeElement)) &&
@@ -1035,6 +1031,9 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
         blocks.add(refer('''
             ${_bodyName.displayName}.map((e) => e.toJson()).toList()
             ''').assignFinal(_dataVar).statement);
+        if (jsonParts.isNotEmpty) {
+          log.warning("`BodyJsonPart` is not compatible with list body.");
+        }
       } else if (bodyTypeElement != null && _typeChecker(File).isExactly(bodyTypeElement)) {
         blocks.add(refer("Stream")
             .property("fromIterable")
@@ -1043,6 +1042,9 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
             ])
             .assignFinal(_dataVar)
             .statement);
+        if (jsonParts.isNotEmpty) {
+          log.warning("`BodyJsonPart` is not compatible with file body.");
+        }
       } else if (_bodyName.type.element is ClassElement) {
         final ele = _bodyName.type.element as ClassElement;
         if (clientAnnotation.parser == retrofit.Parser.MapSerializable) {
@@ -1060,6 +1062,9 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
             blocks.add(refer("$_dataVar.addAll").call([
               refer("${_bodyName.displayName}?.toMap() ?? <String,dynamic>{}")
             ]).statement);
+            if (jsonParts.isNotEmpty) {
+              blocks.add(refer("$_dataVar.addAll").call([refer(_localJsonParts)]).statement);
+            }
           }
         } else {
           final toJson = ele.lookUpMethod('toJson', ele.library);
@@ -1082,6 +1087,9 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
                 refer("${_bodyName.displayName}?.toJson() ?? <String,dynamic>{}")
               ]).statement);
             }
+            if (jsonParts.isNotEmpty) {
+              blocks.add(refer("$_dataVar.addAll").call([refer(_localJsonParts)]).statement);
+            }
             if (nullToAbsent) blocks.add(Code("$_dataVar.removeWhere((k, v) => v == null);"));
           }
         }
@@ -1090,6 +1098,10 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
         blocks
             .add(refer(_bodyName.displayName).assignFinal(_dataVar).statement);
       }
+
+      return;
+    } else if (jsonParts.isNotEmpty) {
+      blocks.add(refer(_localJsonParts).assignFinal(_dataVar).statement);
 
       return;
     }
